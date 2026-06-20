@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Sleep &amp; Respiratory Dashboard</title>
+<style>
+  :root{
+    --bg:#f4f6f9; --panel:#ffffff; --ink:#1c2530; --muted:#5b6b7c;
+    --line:#e2e8f0; --accent:#2f6fb0;
+    --deep:#1f4e79; --core:#3a7bd5; --rem:#16b5a6; --awake:#e8833a;
+    --asleep:#6c8ebf; --inbed:#cdd6e0;
+    --spo2:#d64545; --resp:#2e9e6b; --hr:#8a5cd1;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  header{background:var(--panel);border-bottom:1px solid var(--line);
+    padding:18px 24px;position:sticky;top:0;z-index:10}
+  h1{margin:0;font-size:20px;font-weight:650}
+  .sub{color:var(--muted);font-size:13px;margin-top:2px}
+  .wrap{max-width:1180px;margin:0 auto;padding:20px 24px 80px}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+  .controls button{border:1px solid var(--line);background:#fff;color:var(--ink);
+    padding:5px 12px;border-radius:7px;cursor:pointer;font-size:13px}
+  .controls button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .controls .spacer{flex:1}
+  .controls input[type=date]{border:1px solid var(--line);border-radius:7px;padding:4px 8px;font-size:13px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:18px 0 6px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .card .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .card .v{font-size:24px;font-weight:680;margin-top:4px}
+  .card .v small{font-size:13px;font-weight:500;color:var(--muted)}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:16px 18px;margin:18px 0}
+  .panel h2{margin:0 0 2px;font-size:16px;font-weight:640}
+  .panel .desc{color:var(--muted);font-size:13px;margin-bottom:10px}
+  .chart{width:100%}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted);margin-top:8px}
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .hint{font-size:12px;color:var(--muted)}
+  .night-nav{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+  .night-nav button{border:1px solid var(--line);background:#fff;border-radius:7px;
+    padding:3px 10px;cursor:pointer}
+  .night-title{font-weight:640}
+  @media print{
+    header{position:static} .controls{display:none}
+    .panel{break-inside:avoid;box-shadow:none} body{background:#fff}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Sleep &amp; Respiratory Dashboard</h1>
+  <div class="sub" id="subtitle">Apple Health export — prepared for pulmonary review</div>
+  <div class="controls">
+    <button data-range="90">3 mo</button>
+    <button data-range="180">6 mo</button>
+    <button data-range="365" class="active">1 yr</button>
+    <button data-range="all">All</button>
+    <span class="hint" style="margin-left:6px">Custom:</span>
+    <input type="date" id="from"/> <span class="hint">to</span> <input type="date" id="to"/>
+    <span class="spacer"></span>
+    <button onclick="window.print()">🖨 Print / PDF</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="cards" id="cards"></div>
+
+  <div class="panel">
+    <h2>Single-night detail — hypnogram &amp; overnight vitals</h2>
+    <div class="desc">Sleep stages across the night with blood-oxygen, respiratory rate and heart
+      rate on a shared timeline. Scroll/pinch to zoom into any window. Click a night in the
+      calendar or trends below to load it here.</div>
+    <div class="night-nav">
+      <button id="prevNight">‹ Prev</button>
+      <span class="night-title" id="nightTitle"></span>
+      <button id="nextNight">Next ›</button>
+    </div>
+    <div class="chart" id="hypno" style="height:480px"></div>
+    <div class="legend">
+      <span><i style="background:var(--deep)"></i>Deep</span>
+      <span><i style="background:var(--core)"></i>Core</span>
+      <span><i style="background:var(--rem)"></i>REM</span>
+      <span><i style="background:var(--awake)"></i>Awake</span>
+      <span><i style="background:var(--spo2)"></i>SpO₂ %</span>
+      <span><i style="background:var(--resp)"></i>Resp rate</span>
+      <span><i style="background:var(--hr)"></i>Heart rate</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Sleep calendar — overview &amp; drill-down</h2>
+    <div class="desc">Each day shaded by hours of sleep. Click any day to open it above.</div>
+    <div class="chart" id="calendar"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Trends over time</h2>
+    <div class="desc">Nightly sleep duration, average overnight SpO₂, respiratory rate and the
+      breathing-disturbance index. Drag the slider to zoom; click a point to open that night.</div>
+    <div class="chart" id="trends" style="height:420px"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Sleep-stage composition</h2>
+    <div class="desc">Minutes of Deep / Core / REM / Awake per night (staged nights only).
+      Scroll to zoom the window.</div>
+    <div class="chart" id="composition" style="height:340px"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Breathing-disturbance focus</h2>
+    <div class="desc">Apple Watch sleeping breathing-disturbance index (from watchOS 11, late 2024).
+      Higher values indicate more disrupted breathing during sleep. Click a night to inspect it.</div>
+    <div class="chart" id="breathing" style="height:300px"></div>
+  </div>
+
+  <div class="hint">Generated from a static Apple Health export. This dashboard presents data only;
+    clinical interpretation is for your specialist.</div>
+</div>
+
+<script id="echarts-lib">/*__ECHARTS__*/</script>
+<script>window.SUMMARY=/*__SUMMARY__*/;window.DETAIL=/*__DETAIL__*/;</script>
+<script>
+(function(){
+  const S = window.SUMMARY.nights;        // sorted ascending by night
+  const DETAIL = window.DETAIL;
+  const css = k => getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+  const COL = {deep:css('--deep'),core:css('--core'),rem:css('--rem'),awake:css('--awake'),
+    asleep:css('--asleep'),inbed:css('--inbed'),spo2:css('--spo2'),resp:css('--resp'),hr:css('--hr')};
+  const STAGE_Y = {deep:0,core:1,rem:2,awake:3};
+  const fmtH = m => (m/60).toFixed(1);
+
+  // ---- state ----
+  const allDates = S.map(n=>n.night);
+  let state = {from:null,to:null,night:null};
+
+  function inRange(n){return (!state.from||n.night>=state.from)&&(!state.to||n.night<=state.to);}
+  function visible(){return S.filter(inRange);}
+
+  // ---- charts registry ----
+  const charts={};
+  function mk(id){const c=echarts.init(document.getElementById(id));charts[id]=c;return c;}
+  ['hypno','calendar','trends','composition','breathing'].forEach(mk);
+  window.addEventListener('resize',()=>Object.values(charts).forEach(c=>c.resize()));
+
+  const baseGrid={left:48,right:56,top:30,bottom:60};
+  const tip=extra=>Object.assign({trigger:'axis',confine:true},extra||{});
+
+  // ============ SUMMARY CARDS ============
+  function renderCards(){
+    const v=visible();
+    const avg=(arr,f)=>{const x=arr.map(f).filter(y=>y!=null&&!isNaN(y));return x.length?x.reduce((a,b)=>a+b,0)/x.length:null;};
+    const dur=avg(v,n=>n.asleep_min);
+    const eff=avg(v,n=>n.efficiency);
+    const spo2=avg(v.filter(n=>n.vitals.spo2),n=>n.vitals.spo2.avg);
+    const spo2min=Math.min(...v.filter(n=>n.vitals.spo2).map(n=>n.vitals.spo2.min).concat([Infinity]));
+    const resp=avg(v.filter(n=>n.vitals.resp),n=>n.vitals.resp.avg);
+    const bd=v.filter(n=>n.breathing!=null);
+    const bdAvg=avg(bd,n=>n.breathing);
+    const cards=[
+      ['Nights shown',v.length,''],
+      ['Avg sleep',dur?fmtH(dur):'–','h / night'],
+      ['Avg efficiency',eff?eff.toFixed(0):'–','%'],
+      ['Avg overnight SpO₂',spo2?spo2.toFixed(1):'–','%'],
+      ['Lowest SpO₂',isFinite(spo2min)?spo2min.toFixed(0):'–','%'],
+      ['Avg resp rate',resp?resp.toFixed(1):'–','br/min'],
+      ['Breathing-disturb.',bdAvg!=null?bdAvg.toFixed(1):'–','avg index'],
+    ];
+    document.getElementById('cards').innerHTML=cards.map(([k,val,u])=>
+      `<div class="card"><div class="k">${k}</div><div class="v">${val} <small>${u}</small></div></div>`).join('');
+  }
+
+  // ============ HYPNOGRAM + VITALS ============
+  function renderNight(date){
+    state.night=date;
+    const sum=S.find(n=>n.night===date);
+    const det=DETAIL[date];
+    document.getElementById('nightTitle').textContent =
+      sum ? `${date} · ${fmtH(sum.asleep_min)} h asleep · ${sum.efficiency??'–'}% efficiency` : date;
+    if(!sum||!det){charts.hypno.clear();return;}
+
+    // hypnogram rectangles via custom series
+    const segs=(det.segments||[]).filter(s=>STAGE_Y[s[2]]!=null).map(s=>({
+      value:[ +new Date(s[0]), +new Date(s[1]), STAGE_Y[s[2]], s[2] ]}));
+    const d=det.detail||{};
+    const line=(arr)=> (arr||[]).map(p=>[ +new Date(p[0]), p[1] ]);
+
+    charts.hypno.setOption({
+      tooltip:tip({axisPointer:{type:'cross'}}),
+      axisPointer:{link:[{xAxisIndex:'all'}]},
+      grid:[{left:60,right:60,top:24,height:120},
+            {left:60,right:60,top:200,bottom:50}],
+      xAxis:[
+        {type:'time',gridIndex:0,axisLabel:{show:false}},
+        {type:'time',gridIndex:1}
+      ],
+      yAxis:[
+        {type:'category',gridIndex:0,data:['Deep','Core','REM','Awake'],
+         axisTick:{show:false},splitLine:{show:true,lineStyle:{color:'#eef2f6'}}},
+        {type:'value',gridIndex:1,name:'SpO₂ %',min:80,max:100,position:'left',
+         axisLine:{lineStyle:{color:COL.spo2}}},
+        {type:'value',gridIndex:1,name:'bpm',position:'right',
+         axisLine:{lineStyle:{color:COL.hr}}},
+        {type:'value',gridIndex:1,name:'br/min',position:'right',offset:46,
+         axisLine:{lineStyle:{color:COL.resp}}}
+      ],
+      dataZoom:[{type:'inside',xAxisIndex:[0,1]},{type:'slider',xAxisIndex:[0,1],bottom:8,height:16}],
+      series:[
+        {type:'custom',xAxisIndex:0,yAxisIndex:0,data:segs,
+         renderItem:(p,api)=>{
+           const s=api.coord([api.value(0),api.value(2)]);
+           const e=api.coord([api.value(1),api.value(2)]);
+           const h=14;
+           return {type:'rect',shape:{x:s[0],y:s[1]-h/2,width:e[0]-s[0],height:h},
+             style:{fill:COL[segs[p.dataIndex].value[3]]||'#aaa'}};
+         },
+         encode:{x:[0,1],y:2},
+         tooltip:{formatter:pr=>{const v=pr.value;return v[3].toUpperCase();}}},
+        {name:'SpO₂',type:'line',xAxisIndex:1,yAxisIndex:1,data:line(d.spo2),
+         showSymbol:false,smooth:true,lineStyle:{width:2,color:COL.spo2},color:COL.spo2,connectNulls:true,
+         markLine:{silent:true,symbol:'none',data:[{yAxis:90,lineStyle:{color:COL.spo2,type:'dashed'},
+           label:{formatter:'90%'}}]}},
+        {name:'Heart rate',type:'line',xAxisIndex:1,yAxisIndex:2,data:line(d.hr),
+         showSymbol:false,smooth:true,lineStyle:{width:1.5,color:COL.hr},color:COL.hr,connectNulls:true},
+        {name:'Resp rate',type:'line',xAxisIndex:1,yAxisIndex:3,data:line(d.resp),
+         showSymbol:false,smooth:true,lineStyle:{width:1.5,color:COL.resp},color:COL.resp,connectNulls:true}
+      ]
+    },true);
+  }
+  function stepNight(dir){
+    const vis=visible().map(n=>n.night);
+    let i=vis.indexOf(state.night);
+    if(i<0){i=dir>0?-1:vis.length;} i+=dir;
+    if(i>=0&&i<vis.length) renderNight(vis[i]);
+  }
+  document.getElementById('prevNight').onclick=()=>stepNight(-1);
+  document.getElementById('nextNight').onclick=()=>stepNight(1);
+
+  // ============ CALENDAR ============
+  function renderCalendar(){
+    const v=visible();
+    const years=[...new Set(v.map(n=>+n.night.slice(0,4)))].sort();
+    const data=v.map(n=>[n.night, +(n.asleep_min/60).toFixed(2)]);
+    const cellH=14, gap=34, top=30;
+    const calH=years.length*(7*cellH+gap)+40;
+    document.getElementById('calendar').style.height=calH+'px';
+    charts.calendar.resize();   // re-measure after height change (div starts at 0px)
+    charts.calendar.setOption({
+      tooltip:{formatter:p=>`${p.value[0]}<br/>${p.value[1]} h asleep`},
+      visualMap:{min:3,max:9,calculable:false,orient:'horizontal',right:10,top:0,
+        inRange:{color:['#e9f0f7','#9cc0e6','#3a7bd5','#1f4e79']},text:['9h','3h']},
+      calendar:years.map((y,i)=>({range:''+y,top:top+i*(7*cellH+gap),left:50,right:20,
+        cellSize:['auto',cellH],yearLabel:{show:true,formatter:'{start}',margin:34},
+        itemStyle:{borderColor:'#fff',borderWidth:2,color:'#f7f9fb'},
+        splitLine:{lineStyle:{color:'#dde5ee'}}})),
+      series:years.map((y,i)=>({type:'heatmap',coordinateSystem:'calendar',calendarIndex:i,
+        data:data.filter(d=>d[0].startsWith(''+y))}))
+    },true);
+    charts.calendar.off('click');
+    charts.calendar.on('click',p=>{if(p.value&&p.value[0]){renderNight(p.value[0]);
+      document.getElementById('hypno').scrollIntoView({behavior:'smooth',block:'center'});}});
+  }
+
+  // ============ TRENDS ============
+  function renderTrends(){
+    const v=visible();
+    const x=v.map(n=>n.night);
+    const sleep=v.map(n=>[n.night,+(n.asleep_min/60).toFixed(2)]);
+    const spo2=v.map(n=>[n.night,n.vitals.spo2?n.vitals.spo2.avg:null]);
+    const resp=v.map(n=>[n.night,n.vitals.resp?n.vitals.resp.avg:null]);
+    const bd=v.map(n=>[n.night,n.breathing!=null?n.breathing:null]);
+    charts.trends.setOption({
+      tooltip:tip({axisPointer:{type:'cross'}}),
+      legend:{top:0,data:['Sleep (h)','SpO₂ avg','Resp rate','Breathing index']},
+      grid:{left:50,right:60,top:34,bottom:64},
+      xAxis:{type:'time'},
+      yAxis:[
+        {type:'value',name:'h / %',position:'left'},
+        {type:'value',name:'rate / idx',position:'right'}
+      ],
+      dataZoom:[{type:'inside'},{type:'slider',bottom:8,height:18}],
+      series:[
+        {name:'Sleep (h)',type:'line',data:sleep,showSymbol:false,smooth:true,
+         lineStyle:{color:COL.core},color:COL.core,areaStyle:{opacity:.08,color:COL.core}},
+        {name:'SpO₂ avg',type:'line',yAxisIndex:0,data:spo2,showSymbol:false,smooth:true,
+         lineStyle:{color:COL.spo2},color:COL.spo2,connectNulls:false},
+        {name:'Resp rate',type:'line',yAxisIndex:1,data:resp,showSymbol:false,smooth:true,
+         lineStyle:{color:COL.resp},color:COL.resp,connectNulls:false},
+        {name:'Breathing index',type:'line',yAxisIndex:1,data:bd,showSymbol:false,smooth:true,
+         lineStyle:{color:COL.awake},color:COL.awake,connectNulls:false}
+      ]
+    },true);
+    charts.trends.off('click');
+    charts.trends.on('click',p=>{const dt=Array.isArray(p.value)?p.value[0]:null;
+      const day=dt?new Date(dt).toISOString().slice(0,10):null;
+      if(day&&DETAIL[day]){renderNight(day);
+        document.getElementById('hypno').scrollIntoView({behavior:'smooth',block:'center'});}});
+  }
+
+  // ============ COMPOSITION ============
+  function renderComposition(){
+    const v=visible().filter(n=>n.staged);
+    const x=v.map(n=>n.night);
+    const stages=['deep','core','rem','awake'];
+    charts.composition.setOption({
+      tooltip:tip(),
+      legend:{top:0,data:['Deep','Core','REM','Awake']},
+      grid:{left:50,right:20,top:34,bottom:64},
+      xAxis:{type:'category',data:x,axisLabel:{formatter:v=>v.slice(5)}},
+      yAxis:{type:'value',name:'min'},
+      dataZoom:[{type:'inside'},{type:'slider',bottom:8,height:18,
+        startValue:Math.max(0,x.length-60)}],
+      series:stages.map(s=>({name:s[0].toUpperCase()+s.slice(1),type:'bar',stack:'st',
+        data:v.map(n=>n.stages_min[s]||0),itemStyle:{color:COL[s]}}))
+    },true);
+  }
+
+  // ============ BREATHING ============
+  function renderBreathing(){
+    const v=visible().filter(n=>n.breathing!=null);
+    const data=v.map(n=>[n.night,n.breathing]);
+    const vals=v.map(n=>n.breathing);
+    const mean=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0;
+    charts.breathing.setOption({
+      tooltip:tip({axisPointer:{type:'shadow'}}),
+      grid:{left:50,right:20,top:24,bottom:64},
+      xAxis:{type:'time'},
+      yAxis:{type:'value',name:'disturbance index'},
+      dataZoom:[{type:'inside'},{type:'slider',bottom:8,height:18}],
+      series:[{type:'bar',data:data,itemStyle:{color:COL.awake},
+        markLine:{silent:true,symbol:'none',data:[{yAxis:+mean.toFixed(2),
+          lineStyle:{type:'dashed',color:'#888'},label:{formatter:'avg '+mean.toFixed(1)}}]}}]
+    },true);
+    charts.breathing.off('click');
+    charts.breathing.on('click',p=>{const dt=Array.isArray(p.value)?p.value[0]:null;
+      const day=dt?new Date(dt).toISOString().slice(0,10):null;
+      if(day&&DETAIL[day]){renderNight(day);
+        document.getElementById('hypno').scrollIntoView({behavior:'smooth',block:'center'});}});
+  }
+
+  // ============ RANGE CONTROL ============
+  function applyRange(days){
+    const last=allDates[allDates.length-1];
+    if(days==='all'){state.from=allDates[0];}
+    else{const d=new Date(last);d.setDate(d.getDate()-days);state.from=d.toISOString().slice(0,10);}
+    state.to=last;
+    document.getElementById('from').value=state.from;
+    document.getElementById('to').value=state.to;
+    renderAll();
+  }
+  function renderAll(){renderCards();renderCalendar();renderTrends();renderComposition();renderBreathing();}
+
+  document.querySelectorAll('.controls [data-range]').forEach(b=>{
+    b.onclick=()=>{document.querySelectorAll('.controls [data-range]').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');applyRange(b.dataset.range==='all'?'all':+b.dataset.range);};
+  });
+  function customRange(){state.from=document.getElementById('from').value;
+    state.to=document.getElementById('to').value;
+    document.querySelectorAll('.controls [data-range]').forEach(x=>x.classList.remove('active'));
+    renderAll();}
+  document.getElementById('from').onchange=customRange;
+  document.getElementById('to').onchange=customRange;
+
+  // ---- subtitle + init ----
+  document.getElementById('subtitle').textContent =
+    `Apple Health export · ${allDates[0]} → ${allDates[allDates.length-1]} · ${S.length} nights · prepared for pulmonary review`;
+  applyRange(365);
+  // open the most recent staged night by default
+  const lastStaged=[...S].reverse().find(n=>n.staged&&DETAIL[n.night]);
+  if(lastStaged) renderNight(lastStaged.night);
+})();
+</script>
+</body>
+</html>

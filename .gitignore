@@ -1,0 +1,16 @@
+# This directory contains personal Apple Health data.
+# Default-deny: ignore EVERYTHING, then explicitly allow only non-personal code.
+
+/*
+!/.gitignore
+!/README.md
+!/dashboard/
+
+# Within the dashboard, keep code/tooling but exclude anything with real readings.
+/dashboard/data/
+/dashboard/screenshots/
+/dashboard/sleep-dashboard.html
+/dashboard/.playwright-mcp/
+
+# OS / editor noise
+.DS_Store
