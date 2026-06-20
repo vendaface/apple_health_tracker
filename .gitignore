@@ -4,7 +4,13 @@
 /*
 !/.gitignore
 !/README.md
+!/LICENSE
 !/dashboard/
+!/docs/
+
+# docs/ holds the README screenshot only; the generated synthetic JSON is rebuildable.
+/docs/sample_summary.json
+/docs/sample_detail.json
 
 # Within the dashboard, keep code/tooling but exclude anything with real readings.
 /dashboard/data/

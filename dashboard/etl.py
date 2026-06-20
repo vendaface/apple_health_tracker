@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Vendaface
+# Part of apple_health_tracker — https://github.com/vendaface/apple_health_tracker
 """
 Apple Health export -> sleep + pulmonary dashboard data.
 

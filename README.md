@@ -9,6 +9,10 @@ It pairs sleep-stage data (hypnogram) with the breathing-related metrics in the 
 > included. The raw export and the generated dashboard (which embed real readings) are
 > git-ignored and never leave your machine.
 
+![Sleep & respiratory dashboard — rendered from synthetic sample data](docs/demo.png)
+
+*Screenshot above is generated from **synthetic** data (`dashboard/sample_data.py`), not real readings.*
+
 ## Quick start
 
 1. On your iPhone: **Health app → profile → Export All Health Data**. Unzip it; you'll
@@ -34,6 +38,19 @@ It pairs sleep-stage data (hypnogram) with the breathing-related metrics in the 
 
 See [`dashboard/README.md`](dashboard/README.md) for details.
 
+## Try it without an export (synthetic demo)
+
+No Apple Health export handy? Generate a realistic, fully synthetic dashboard:
+
+```bash
+cd dashboard
+python3 sample_data.py                                  # -> ../docs/sample_*.json
+python3 build.py ../docs/sample_summary.json ../docs/sample_detail.json /tmp/demo.html
+open /tmp/demo.html
+```
+
+This is exactly how the screenshot above was produced — no real data involved.
+
 ## How it works
 
 `etl.py` stream-parses the multi-GB `export.xml` with constant memory, groups sleep
@@ -43,5 +60,5 @@ Watch staged data), bins overnight vitals, and emits compact JSON. `build.py` in
 
 ## License
 
-Code is provided as-is for personal use. Apache ECharts (`dashboard/vendor/`) is under
+[MIT](LICENSE) © 2026 Vendaface. Bundled Apache ECharts (`dashboard/vendor/`) is under
 the Apache-2.0 license.
