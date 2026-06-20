@@ -17,14 +17,15 @@ It pairs sleep-stage data (hypnogram) with the breathing-related metrics in the 
 
 1. On your iPhone: **Health app → profile → Export All Health Data**. Unzip it; you'll
    get a folder containing `export.xml`.
-2. Place this repo's `dashboard/` folder next to that `export.xml` (or pass a path).
-3. Build:
+2. Send the file to your destination of choice (AirDrop to a Mac, email to yourself, probably don't save your personal health data to the cloud). Note: depending upon how many years you've been collecting data, it could be multiple gigabytes in size.
+3. Place this repo's `dashboard/` folder next to that `export.xml` (or pass a path).
+4. Open a command line environment (Terminal, Command) and build the dashboard:
    ```bash
    cd dashboard
    python3 etl.py        # streams ../export.xml -> data/*.json   (a few minutes)
    python3 build.py      # inlines ECharts + data -> sleep-dashboard.html
    ```
-4. Open **`dashboard/sleep-dashboard.html`** (double-click). It's one self-contained
+5. Double-click the resulting **`dashboard/sleep-dashboard.html`** to open it in a browser. It's one self-contained
    file — no server or internet needed — and has a **Print / PDF** button for sharing.
 
 ## Dashboard views
